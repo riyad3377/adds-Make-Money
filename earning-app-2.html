@@ -321,7 +321,7 @@
     <button class="ad-close-btn" id="ad-close-btn">বন্ধ করুন</button>
 </div>
 
-<script src="//libtl.com/sdk.js" data-zone="9702412" data-sdk="show_9702412"></script>
+<script src="//libtl.com/sdk.js" data-zone="11983032" data-sdk="show_11983032"></script>
 <script>
 (function(){
     const firebaseConfig = {
@@ -563,55 +563,50 @@
         }
     });
 
-    var adTimerInterval=null, adWatchCompleted=false, currentAdReward=0;
-    function startAdWatch() {
-        if ((me.adsWatchedToday||0) >= settings.dailyAdsLimit) { showMsg('আপনার দৈনিক বিজ্ঞাপনের সীমা পৌঁছে গেছে।'); return; }
-        adWatchCompleted=false; currentAdReward=settings.adReward;
-        var remaining = settings.adWatchTime||14;
-        var overlay=document.getElementById('ad-overlay');
-        var timerCircle=document.getElementById('ad-timer-circle');
-        var timerText=document.getElementById('ad-timer-text');
-        var message=document.getElementById('ad-message');
-        var skipWarn=document.getElementById('ad-skip-warning');
-        var closeBtn=document.getElementById('ad-close-btn');
-        overlay.classList.add('active'); timerCircle.classList.remove('ready');
-        timerText.textContent=remaining;
-        message.innerHTML='বিজ্ঞাপন দেখুন...<br>সম্পূর্ণ সময় দেখুন!';
-        skipWarn.style.display='block'; closeBtn.classList.remove('show');
-        closeBtn.textContent='বন্ধ করুন (রিওয়ার্ড ছাড়া)'; closeBtn.style.background='#333';
-        if (typeof show_9702412==='function') { try{ show_9702412().then(function(){}).catch(function(){}); }catch(e){} }
-        if (adTimerInterval) clearInterval(adTimerInterval);
-        adTimerInterval=setInterval(function(){
-            remaining--; timerText.textContent=remaining;
-            if (remaining<=0) {
-                clearInterval(adTimerInterval); adTimerInterval=null; adWatchCompleted=true;
-                timerCircle.classList.add('ready'); timerText.textContent='✓';
-                message.innerHTML='🎉 সম্পূর্ণ হয়েছে!<br>রিওয়ার্ড নিন।';
-                skipWarn.style.display='none'; closeBtn.classList.add('show');
-                closeBtn.textContent='রিওয়ার্ড নিন ও বন্ধ করুন'; closeBtn.style.background='var(--secondary-color)';
-            }
-        },1000);
+    var isAdLoading = false;
+    async function giveAdReward() {
+        var reward = settings.adReward;
+        me.earnings = parseFloat((Number(me.earnings || 0) + reward).toFixed(4));
+        me.totalEarned = parseFloat((Number(me.totalEarned || 0) + reward).toFixed(4));
+        me.adsWatched = (me.adsWatched || 0) + 1;
+        me.adsWatchedToday = (me.adsWatchedToday || 0) + 1;
+        me.lastAdDate = new Date().toDateString();
+        me.history = me.history || [];
+        me.history.push({ type: 'ad', amount: reward, note: 'Ad watched reward', time: Date.now() });
+        await saveMe();
+        updateUI();
+        showMsg('বিজ্ঞাপনটি দেখার জন্য আপনি BDT ' + reward.toFixed(2) + ' পেয়েছেন!');
     }
-    async function closeAdOverlay() {
-        document.getElementById('ad-overlay').classList.remove('active');
-        if (adTimerInterval){ clearInterval(adTimerInterval); adTimerInterval=null; }
-        if (adWatchCompleted) {
-            me.earnings=parseFloat((Number(me.earnings||0)+currentAdReward).toFixed(4));
-            me.totalEarned=parseFloat((Number(me.totalEarned||0)+currentAdReward).toFixed(4));
-            me.adsWatched=(me.adsWatched||0)+1;
-            me.adsWatchedToday=(me.adsWatchedToday||0)+1;
-            me.lastAdDate=new Date().toDateString();
-            me.history=me.history||[];
-            me.history.push({type:'ad',amount:currentAdReward,note:'Ad watched reward',time:Date.now()});
-            await saveMe(); updateUI();
-            showMsg('বিজ্ঞাপনটি দেখার জন্য আপনি BDT '+currentAdReward.toFixed(2)+' পেয়েছেন!');
-        } else {
-            showMsg('আপনি সম্পূর্ণ বিজ্ঞাপন দেখেননি। কোনো রিওয়ার্ড পাওয়া যায়নি।');
+    function startAdWatch() {
+        if ((me.adsWatchedToday || 0) >= settings.dailyAdsLimit) {
+            showMsg('আপনার দৈনিক বিজ্ঞাপনের সীমা পৌঁছে গেছে।');
+            return;
         }
-        adWatchCompleted=false;
+        if (isAdLoading) return;
+        if (typeof show_11983032 !== 'function') {
+            showMsg('অ্যাড SDK লোড হয়নি। একটু পরে আবার চেষ্টা করুন।');
+            return;
+        }
+        isAdLoading = true;
+        var watchBtn = document.getElementById('watch-ad-btn');
+        watchBtn.disabled = true;
+        watchBtn.innerHTML = 'বিজ্ঞাপন লোড হচ্ছে... <span class="material-icons">hourglass_empty</span>';
+
+        show_11983032()
+            .then(function () {
+                // User successfully watched the rewarded interstitial
+                return giveAdReward();
+            })
+            .catch(function (err) {
+                console.error('Ad error:', err);
+                showMsg('বিজ্ঞাপন দেখানো যায়নি। পরে আবার চেষ্টা করুন।');
+            })
+            .finally(function () {
+                isAdLoading = false;
+                updateUI();
+            });
     }
     document.getElementById('watch-ad-btn').addEventListener('click', startAdWatch);
-    document.getElementById('ad-close-btn').addEventListener('click', closeAdOverlay);
 
     document.getElementById('withdraw-form').addEventListener('submit', async function(e){
         e.preventDefault();
@@ -862,4 +857,4 @@
 })();
 </script>
 </body>
-</html>
+    </html>
